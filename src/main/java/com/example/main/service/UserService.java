@@ -16,6 +16,12 @@ import java.util.Optional;
 
 @Service
 public class UserService {
+    // @Autowired tells Spring to automatically inject a UserRepository bean at startup.
+    // At startup, Spring's ApplicationContext performs component scanning, discovers the UserRepository interface,
+    // creates a dynamic proxy bean that implements it (backed by JpaRepository), and stores it in the IoC container.
+    // When this UserService bean is instantiated, Spring looks for dependencies marked with @Autowired,
+    // retrieves the UserRepository bean from the container, and injects it here.
+    // This eliminates the need for manual instantiation (new UserRepository()) and enables loose coupling.
     @Autowired
     private UserRepository _userRepository;
 

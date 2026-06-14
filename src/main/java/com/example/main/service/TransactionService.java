@@ -17,9 +17,18 @@ import java.util.Optional;
 
 @Service
 public class TransactionService {
+    // @Autowired tells Spring to automatically inject a TransactionRepository bean at startup.
+    // At startup, Spring's ApplicationContext performs component scanning, discovers the TransactionRepository interface,
+    // creates a dynamic proxy bean that implements it (backed by JpaRepository), and stores it in the IoC container.
+    // When this TransactionService bean is instantiated, Spring looks for dependencies marked with @Autowired,
+    // retrieves the TransactionRepository bean from the container, and injects it here.
+    // This eliminates the need for manual instantiation and enables loose coupling between service and repository layers.
     @Autowired
     private TransactionRepository _transactionRepository;
 
+    // @Autowired also injects the UserRepository here. Spring reuses the same UserRepository bean that was
+    // created during component scanning, ensuring all service classes share a single repository instance.
+    // This shared bean approach optimizes memory usage and ensures consistent data access patterns.
     @Autowired
     private UserRepository _userRepository;
 

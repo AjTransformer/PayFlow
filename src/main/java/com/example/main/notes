@@ -1,0 +1,37 @@
+Question 1: Request Lifecycle
+
+When you execute curl -X POST http://localhost:8080/users, the request first hits the DispatcherServlet, which is Spring's central HTTP request router. The DispatcherServlet examines the URL pattern /users and HTTP method POST to find the matching handler method. It then delegates to the HandlerAdapter, which is responsible for actually invoking your registersUser() method in the UserController. Before the method executes, the HandlerAdapter uses the Jackson MessageConverter (because of @RequestBody) to deserialize the JSON payload into a Java User object. Finally, your controller method runs with the populated User object and returns a response that gets serialized back to JSON for the client.
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+Question 2: Serialisation
+
+The @RequestBody annotation combined with Spring's Jackson ObjectMapper automatically converts the JSON payload into a Java User object. Jackson uses reflection to map JSON fields to Java object properties by matching field names. If your JSON key is "upi_id" (snake_case) but your Java field is upiId (camelCase), Jackson will fail to deserialize that field because the names don't match exactly, resulting in a null value for that property. To handle this mismatch, you would need to add @JsonProperty("upi_id") annotation on the upiId field, or configure Jackson globally to automatically convert snake_case to camelCase during deserialization.
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+Question 3: Spring Boot Features
+
+Feature 1 – Auto-Configuration: Spring Boot automatically configures Spring based on classpath dependencies. In PayFlow, when you added spring-boot-starter-data-jpa and com.h2database:h2, Spring Boot automatically set up Hibernate, JPA, and the H2 datasource without you writing a single XML configuration file.
+
+Feature 2 – Embedded Server: Spring Boot includes an embedded Tomcat server, so you don't need to deploy your application to an external server. PayFlow runs directly from java -jar or your IDE without requiring manual Tomcat setup—Spring Boot starts the server on port 8080 automatically.
+
+Feature 3 – Starter Dependencies: Spring Boot provides pre-configured dependency sets like spring-boot-starter-web and spring-boot-starter-data-jpa that bundle compatible versions of libraries. In PayFlow, instead of manually specifying Spring Core, Spring MVC, Spring Data JPA, and Hibernate versions individually, you declared two starters and got everything you needed with version conflicts already resolved.
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+Question 4: Spring vs. Spring Boot
+
+With plain Spring, you would have manually created an application-context.xml file to define beans like UserRepository, UserService, and TransactionService; configured the DispatcherServlet in web.xml; specified datasource properties, Hibernate dialect, and JPA settings in properties files; and packaged everything as a WAR file to deploy on an external Tomcat server. Spring Boot eliminates all of this: it auto-detects your @Service and @Repository classes through component scanning, automatically configures the datasource and JPA based on application.properties, includes an embedded Tomcat, and creates an executable JAR that runs with a single command. Essentially, Spring Boot reduces boilerplate configuration from dozens of XML lines to convention-based annotations and properties.
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+Question 5: Stateless REST
+
+Stateless means your server does not store information about any client between requests—each request is independent and self-contained, carrying all the information needed to process it. If PayFlow ran on three servers behind a load balancer, a client's POST to create a user could hit Server A, and the next GET to retrieve that user could hit Server B or C. If the servers were stateful and stored session data locally, Server B would have no memory of what Server A did, causing data loss or failures. With stateless REST, all three servers query the same database and return consistent results regardless of which one handles the request, making the system horizontally scalable and fault-tolerant.
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+Question 6: Persistence
+
+If you had stored transactions in a Java List<Transaction> instead of the H2 database, all transaction records would be lost the moment the server restarts because RAM is volatile and cleared on shutdown. Every transaction—including completed money transfers—would disappear, leaving no audit trail or proof of the payment. For a payments application, this is unacceptable because regulators require permanent transaction records for compliance, customers need proof of their transfers, and disputes cannot be resolved without historical data. A persistent database like H2 (or PostgreSQL in production) ensures that every transaction is permanently recorded and survives server restarts, ensuring data integrity and regulatory compliance.

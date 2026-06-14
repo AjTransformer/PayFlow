@@ -50,20 +50,25 @@ The application is implemented using **Spring Boot**, **Spring Data JPA**, and a
 src
 ├── main
 │   ├── java
-│   │   └── com.payflow
+│   │   └── com.example.main
 │   │       ├── controller
 │   │       │   ├── UserController.java
 │   │       │   └── TransactionController.java
 │   │       ├── entity
 │   │       │   ├── User.java
-│   │       │   └── Transaction.java
+│   │       │   ├── Transaction.java
+│   │       │   └── error_response.java
+│   │       ├── exception
+│   │       │   ├── InvalidAmountException.java
+│   │       │   ├── UserNotFound.java
+│   │       │   └── UserNotPresentInUpiPayRoleException.java
 │   │       ├── repository
 │   │       │   ├── UserRepository.java
 │   │       │   └── TransactionRepository.java
 │   │       ├── service
 │   │       │   ├── UserService.java
 │   │       │   └── TransactionService.java
-│   │       └── PayFlowApplication.java
+│   │       └── MainApplication.java
 │   └── resources
 │       └── application.properties
 ```
@@ -74,59 +79,44 @@ src
 
 ## User Entity
 
-```java
-@Entity
-public class User {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    private String name;
-
-    private String upiId;
-
-    private Double balance;
-}
-```
+The User entity represents a registered user in the PayFlow system with the following annotations for validation:
+- `@Entity` - Maps the class to a database table
+- `@Id` - Marks userId as the primary key
+- `@GeneratedValue(strategy = GenerationType.AUTO)` - Auto-generates IDs
+- `@NotNull` and `@NotEmpty` - Validates required fields
 
 ### Fields
 
-| Field   | Type   | Description           |
-| ------- | ------ | --------------------- |
-| id      | Long   | Primary Key           |
-| name    | String | User name             |
-| upiId   | String | Unique UPI identifier |
-| balance | Double | Wallet balance        |
+| Field       | Type   | Description                    |
+| ----------- | ------ | ------------------------------ |
+| userId      | Long   | Primary Key                    |
+| name        | String | User name                      |
+| upiId       | String | Unique UPI identifier          |
+| balance     | Double | Wallet balance                 |
+| phoneNumber | String | User's phone number (required) |
+
+The entity includes a parameterized constructor for object creation and getter/setter methods for all fields.
 
 ---
 
 ## Transaction Entity
 
-```java
-@Entity
-public class Transaction {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    private String senderUpiId;
-
-    private String receiverUpiId;
-
-    private Double amount;
-}
-```
+The Transaction entity records money transfers between users with validation annotations:
+- `@Entity` - Maps the class to a database table
+- `@Id` with `@GeneratedValue(strategy = GenerationType.IDENTITY)` - Auto-generates transaction IDs
+- `@NotNull` and `@NotEmpty` - Validates required transaction fields
 
 ### Fields
 
-| Field         | Type   | Description        |
-| ------------- | ------ | ------------------ |
-| id            | Long   | Primary Key        |
-| senderUpiId   | String | Sender UPI ID      |
-| receiverUpiId | String | Receiver UPI ID    |
-| amount        | Double | Amount transferred |
+| Field          | Type   | Description                |
+| -------------- | ------ | -------------------------- |
+| transactionId  | Long   | Primary Key                |
+| senderUpiId    | String | Sender UPI ID              |
+| receiverUpiId  | String | Receiver UPI ID            |
+| amount         | double | Amount transferred         |
+| note           | String | Transaction note/memo      |
+
+The entity includes a parameterized constructor and getter/setter methods for all fields.
 
 > Note: Relationships between User and Transaction are intentionally omitted for this assignment. Sender and receiver UPI IDs are stored as plain strings.
 
@@ -136,77 +126,44 @@ public class Transaction {
 
 ## application.properties
 
-```properties
-spring.datasource.url=jdbc:h2:mem:payflowdb
-spring.datasource.driverClassName=org.h2.Driver
-spring.datasource.username=sa
-spring.datasource.password=
+The application uses an H2 in-memory database for development and testing. Configuration includes:
 
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-
-spring.h2.console.enabled=true
-spring.h2.console.path=/h2-console
-```
+- **Database URL**: `jdbc:h2:mem:UpiPayFlow`
+- **Username**: `user`
+- **Password**: `user`
+- **DDL Auto**: `update` - Automatically creates/updates tables based on entities
+- **SQL Logging**: Enabled for debugging
+- **H2 Console**: Accessible at `/h2-console` for manual database inspection
+- **Error Handling**: Configured to include detailed error messages and validation errors in responses
+- **Naming Strategy**: Uses camelCase to snake_case conversion for database columns with global quote identifiers enabled
 
 ---
 
 ## Auto-generated Tables
 
-Spring Data JPA automatically generates tables at startup.
+Spring Data JPA automatically generates tables at startup based on entity definitions. Hibernate applies naming conventions that convert camelCase field names to snake_case column names (e.g., `userId` → `user_id`, `senderUpiId` → `sender_upi_id`).
 
-Example SQL generated by Hibernate:
+The USER table includes columns for id, name, upi_id, balance, and phone_number with appropriate data types and constraints.
 
-### USER Table
+The TRANSACTION table includes columns for transaction_id, sender_upi_id, receiver_upi_id, amount, and note.
 
-```sql
-create table user (
-    id bigint generated by default as identity,
-    balance float(53),
-    name varchar(255),
-    upi_id varchar(255),
-    primary key (id)
-);
-```
+Here are there created tables queries at startup done by hibernate:
 
-### TRANSACTION Table
-
-```sql
-create table transaction (
-    id bigint generated by default as identity,
-    amount float(53),
-    receiver_upi_id varchar(255),
-    sender_upi_id varchar(255),
-    primary key (id)
-);
-```
-
----
+![img_2.png](img_2.png)
 
 # Task 3 – Repository Layer
 
 ## UserRepository
 
-```java
-@Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+The UserRepository extends `JpaRepository<User, Long>` to provide built-in CRUD operations. 
 
-    User findByUpiId(String upiId);
-
-    @Query("SELECT u FROM User u WHERE u.balance > :amount")
-    List<User> findUsersWithBalanceGreaterThan(
-            @Param("amount") Double amount);
-}
-```
+Custom methods include:
+- `findByUpiId(String upiId)` - A derived query method that automatically finds a user by their UPI ID. Spring generates the SQL based on the method name convention.
+- `findUsersWithBalanceGreaterThan(Double amount)` - Uses a custom `@Query` annotation with JPQL to find all users with a balance greater than the specified amount. Returns an Optional containing a list of users.
 
 ## TransactionRepository
 
-```java
-@Repository
-public interface TransactionRepository
-        extends JpaRepository<Transaction, Long> {
-}
-```
+The TransactionRepository extends `JpaRepository<Transaction, Long>` to provide built-in CRUD operations for managing transactions in the database. Currently, no custom query methods are defined, as the basic save and retrieve operations are sufficient for transaction management.
 
 ---
 
@@ -214,56 +171,35 @@ public interface TransactionRepository
 
 ## UserService
 
-```java
-@Service
-public class UserService {
+The UserService is a Spring `@Service` component responsible for business logic related to user management. It uses `@Autowired` dependency injection to automatically inject the UserRepository bean.
 
-    @Autowired
-    private UserRepository userRepository;
+**Key Methods:**
+- `registerUser(User user)` - Saves a new user to the database
+- `getAllUsers()` - Retrieves all registered users
+- `findByUpiId(User user)` - Finds a user by their UPI ID
+- `getAllUsersWithBalanceGreaterThan(Double balance)` - Retrieves users with balance above a specified amount. Throws `UserNotFound` exception if no users are found.
 
-    // Spring scans the application context,
-    // creates a UserRepository bean,
-    // and injects it automatically at startup.
-
-    public User registerUser(User user) {
-        return userRepository.save(user);
-    }
-
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
-    }
-
-    public Optional<User> getUserById(Long id) {
-        return userRepository.findById(id);
-    }
-
-    public User findByUpiId(String upiId) {
-        return userRepository.findByUpiId(upiId);
-    }
-}
-```
+**Exception Handling:**
+The service includes an `@ExceptionHandler` method to handle `UserNotFound` exceptions and return a custom error response with appropriate HTTP status code, message, timestamp, and stack trace.
 
 ---
 
 ## TransactionService
 
-```java
-@Service
-public class TransactionService {
+The TransactionService is a Spring `@Service` component handling business logic for money transfers. It uses `@Autowired` to inject both TransactionRepository and UserRepository.
 
-    @Autowired
-    private TransactionRepository transactionRepository;
+**Key Method:**
+- `sendMoney(String senderUpiId, String receiverUpiId, Double amount)` - Performs a money transfer with comprehensive validation:
+  - Verifies both sender and receiver are registered in the system
+  - Validates transaction amount is between 1.00 and 200000.00
+  - Creates and saves the transaction record
 
-    // Spring automatically creates a
-    // TransactionRepository bean and injects it.
+**Exception Handling:**
+The service includes `@ExceptionHandler` methods for:
+- `UserNotPresentInUpiPayRoleException` - Thrown when sender or receiver is not found
+- `InvalidAmountException` - Thrown when transaction amount is outside valid range
 
-    public Transaction sendMoney(
-            Transaction transaction) {
-
-        return transactionRepository.save(transaction);
-    }
-}
-```
+Both exceptions return a custom error response with HTTP status, message, timestamp, and stack trace.
 
 ---
 
@@ -271,72 +207,25 @@ public class TransactionService {
 
 ## UserController
 
-Base URL:
+**Base URL:** `/users`
 
-```text
-/users
-```
+**Endpoints:**
 
-### Register User
+1. **Register User** - `POST /users` - Registers a new user. Uses `@Valid` to trigger input validation on the User object.
 
-```java
-@PostMapping
-public User registerUser(
-        @RequestBody User user) {
-    return userService.registerUser(user);
-}
-```
+2. **Get All Users** - `GET /users` - Retrieves a list of all registered users.
 
-### Get All Users
-
-```java
-@GetMapping
-public List<User> getAllUsers() {
-    return userService.getAllUsers();
-}
-```
-
-### Get User By ID
-
-```java
-@GetMapping("/{id}")
-public Optional<User> getUserById(
-        @PathVariable Long id) {
-    return userService.getUserById(id);
-}
-```
-
-### Get User By UPI ID
-
-```java
-@GetMapping("/upi/{upiId}")
-public User getByUpiId(
-        @PathVariable String upiId) {
-    return userService.findByUpiId(upiId);
-}
-```
+3. **Get User By UPI ID** - `GET /users/upi/{upiId}` - Retrieves a specific user by their UPI ID. Returns an Optional containing the user if found.
 
 ---
 
 ## TransactionController
 
-Base URL:
+**Base URL:** `/transactions`
 
-```text
-/transactions
-```
+**Endpoints:**
 
-### Send Money
-
-```java
-@PostMapping
-public Transaction sendMoney(
-        @RequestBody Transaction transaction) {
-
-    return transactionService
-            .sendMoney(transaction);
-}
-```
+1. **Send Money** - `POST /transactions` - Initiates a money transfer between two registered users. Accepts sender UPI ID, receiver UPI ID, and amount. The service validates both users exist and the amount is within acceptable range before saving the transaction.
 
 ---
 
@@ -524,67 +413,88 @@ User(
 
 ## Derived Query
 
-```java
-User findByUpiId(String upiId);
+Spring Data JPA automatically generates SQL queries based on method naming conventions. For example, a method named `findByUpiId(String upiId)` automatically generates a query that filters users by UPI ID without requiring explicit `@Query` annotations.
+
+### How JPA Derives the Query
+
+The method name `findByUpiId` is parsed by Spring Data JPA's query builder:
+- **`find`** - Indicates a SELECT query that returns results
+- **`By`** - Signals the start of the WHERE clause conditions
+- **`UpiId`** - Maps to the entity field `upiId` (Spring converts camelCase to match Java field names)
+
+Spring Data JPA translates this into the following SQL:
+
+```sql
+SELECT u FROM User u WHERE u.upiId = ?
 ```
 
-Spring automatically generates the SQL query based on the method name.
+### Understanding the ? Placeholder
 
----
+The `?` is a **parameterized query placeholder** (also called a bind variable). When you call `findByUpiId("rahul@payflow")`, the value `"rahul@payflow"` replaces the `?` at runtime:
+
+```sql
+SELECT u FROM User u WHERE u.upiId = 'rahul@payflow'
+```
+
+**Why use `?` instead of string concatenation?**
+- **SQL Injection Prevention** - Malicious input like `rahul' OR '1'='1` cannot escape the string boundaries
+- **Query Plan Caching** - Database engines reuse compiled query plans for the same SQL structure
+- **Performance** - No string parsing or escaping overhead at runtime
+
+This is an example of **prepared statements**, a security best practice that Spring Data JPA handles automatically behind the scenes.
 
 ## JPQL Query
 
-```java
-@Query(
- "SELECT u FROM User u WHERE u.balance > :amount"
-)
-List<User> findUsersWithBalanceGreaterThan(
-        @Param("amount") Double amount);
-```
+For more complex queries that don't fit naming conventions, Spring supports custom JPQL (Java Persistence Query Language) queries using the `@Query` annotation. Parameters are bound using `@Param` annotations.
 
-### Example Endpoint
-
-```java
-@GetMapping("/balance/{amount}")
-public List<User> getUsersAboveBalance(
-        @PathVariable Double amount) {
-
-    return userRepository
-            .findUsersWithBalanceGreaterThan(amount);
-}
-```
-
----
+Example: `findUsersWithBalanceGreaterThan(Double amount)` uses a custom JPQL query to retrieve all users with a balance exceeding a specified amount. This demonstrates how to write parameterized queries for more sophisticated database operations.
 
 # H2 Console
 
-Access the H2 database console at:
+The H2 database console provides a web-based interface to inspect and query the in-memory database. Access it at `http://localhost:8080/h2-console`.
 
-```text
-http://localhost:8080/h2-console
-```
+**Connection Details:**
+- JDBC URL: `jdbc:h2:mem:UpiPayFlow`
+- Username: `user`
+- Password: `user`
 
-Connection URL:
+![img.png](img.png)
 
-```text
-jdbc:h2:mem:payflowdb
-```
+![img_1.png](img_1.png)
 
-Queries:
+---
 
-```sql
-SELECT * FROM USER;
-```
+# Validation & Exception Handling
 
-```sql
-SELECT * FROM TRANSACTION;
-```
+## Custom Exceptions
 
-Screenshots should be captured:
+The application includes custom exception classes for better error handling:
 
-1. Before inserting data
-2. After creating users
-3. After recording transactions
+### UserNotFound
+Thrown when a user with a specific UPI ID is not found.
+
+### UserNotPresentInUpiPayRoleException
+Thrown when sender or receiver is not registered in the system during a transaction.
+
+### InvalidAmountException
+Thrown when transaction amount is outside the valid range (1.00 - 200000.00).
+
+## Input Validation
+
+User and Transaction entities use Jakarta validation annotations:
+
+- `@NotNull` - Field cannot be null
+- `@NotEmpty` - Field cannot be empty
+
+All endpoints that accept request bodies use `@Valid` annotation to trigger validation.
+
+## Error Response
+
+Errors are wrapped in a custom `error_response` object containing:
+- HTTP Status Code
+- Error Message
+- Timestamp (in epoch milliseconds)
+- Stack Trace
 
 ---
 
