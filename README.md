@@ -39,7 +39,7 @@ The application is implemented using **Spring Boot**, **Spring Data JPA**, and a
 * Spring Boot
 * Spring Data JPA
 * H2 Database
-* Maven
+* Gradle
 * REST APIs
 
 ---
@@ -602,6 +602,4 @@ By completing this project, you will gain hands-on experience with:
 * REST API development
 * JSON request handling using `@RequestBody`
 * H2 database usage and inspection
-* API testing using cURL
-
-This project demonstrates the foundational backend architecture used by modern digital payment platforms while keeping the implementation simple and beginner-friendly.
+* API testing using cURL.
