@@ -1,9 +1,8 @@
 package com.example.main.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 
 @Entity
 public class User {
@@ -12,12 +11,20 @@ public class User {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long userId;
 
+    @NotNull
+    @NotEmpty
     private String name;
 
+    @NotNull
+    @NotEmpty
     private String upiId;
 
+    @NotNull
+    @NotEmpty
     private Double balance;
 
+    @NotNull
+    @NotEmpty
     private String phoneNumber;
 
     public User(String name, String upiId, Double balance, String phoneNumber) {
